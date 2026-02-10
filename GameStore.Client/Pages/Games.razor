@@ -1,0 +1,310 @@
+@page "/games"
+@using GameStore.Client.Models
+@using GameStore.Client.Services
+@inject GamesService GamesService
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Game Store Management</PageTitle>
+
+<h1>Game Store Management</h1>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="ShowAddGameModal">Add New Game</button>
+</div>
+
+@if (games == null)
+{
+    <div class="text-center">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Genre</th>
+                    <th>Price</th>
+                    <th>Release Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var game in games)
+                {
+                    <tr>
+                        <td>@game.Id</td>
+                        <td>@game.Name</td>
+                        <td>@game.Genre</td>
+                        <td>@game.Price.ToString("C")</td>
+                        <td>@game.releaseDate.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            <button class="btn btn-sm btn-warning me-2" @onclick="() => ShowEditGameModal(game)">Edit</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteGame(game.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- Add Game Modal -->
+<div class="modal fade @(showAddModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Game</h5>
+                <button type="button" class="btn-close" @onclick="HideAddGameModal"></button>
+            </div>
+            <div class="modal-body">
+                <EditForm Model="newGame" OnValidSubmit="HandleAddGame">
+                    <DataAnnotationsValidator />
+                    <ValidationSummary />
+
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Name</label>
+                        <InputText id="name" class="form-control" @bind-Value="newGame.Name" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="genre" class="form-label">Genre</label>
+                        @if (genres == null)
+                        {
+                            <div class="text-center">
+                                <div class="spinner-border spinner-border-sm" role="status">
+                                    <span class="visually-hidden">Loading genres...</span>
+                                </div>
+                                <span class="ms-2">Loading genres...</span>
+                            </div>
+                        }
+                        else if (genres.Count == 0)
+                        {
+                            <select class="form-select" disabled>
+                                <option>No genres available</option>
+                            </select>
+                        }
+                        else
+                        {
+                            <InputSelect id="genre" class="form-select" @bind-Value="newGame.GenreId">
+                                <option value="">Select a genre...</option>
+                                @foreach (var genre in genres)
+                                {
+                                    <option value="@genre.Id">@genre.Name</option>
+                                }
+                            </InputSelect>
+                        }
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="price" class="form-label">Price</label>
+                        <InputNumber id="price" class="form-control" @bind-Value="newGame.Price" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="releaseDate" class="form-label">Release Date</label>
+                        <InputDate id="releaseDate" class="form-control" @bind-Value="newGame.releaseDate" />
+                    </div>
+
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" @onclick="HideAddGameModal">Cancel</button>
+                        <button type="submit" class="btn btn-primary">Add Game</button>
+                    </div>
+                </EditForm>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Game Modal -->
+<div class="modal fade @(showEditModal ? "show d-block" : "")" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Game</h5>
+                <button type="button" class="btn-close" @onclick="HideEditGameModal"></button>
+            </div>
+            <div class="modal-body">
+                @if (editingGame != null)
+                {
+                    <EditForm Model="editingGame" OnValidSubmit="HandleEditGame">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+
+                        <div class="mb-3">
+                            <label for="editName" class="form-label">Name</label>
+                            <InputText id="editName" class="form-control" @bind-Value="editingGame.Name" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editGenre" class="form-label">Genre</label>
+                            @if (genres == null)
+                            {
+                                <div class="text-center">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Loading genres...</span>
+                                    </div>
+                                    <span class="ms-2">Loading genres...</span>
+                                </div>
+                            }
+                            else if (genres.Count == 0)
+                            {
+                                <select class="form-select" disabled>
+                                    <option>No genres available</option>
+                                </select>
+                            }
+                            else
+                            {
+                                <InputSelect id="editGenre" class="form-select" @bind-Value="editingGame.GenreId">
+                                    <option value="">Select a genre...</option>
+                                    @foreach (var genre in genres)
+                                    {
+                                        <option value="@genre.Id">@genre.Name</option>
+                                    }
+                                </InputSelect>
+                            }
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editPrice" class="form-label">Price</label>
+                            <InputNumber id="editPrice" class="form-control" @bind-Value="editingGame.Price" />
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="editReleaseDate" class="form-label">Release Date</label>
+                            <InputDate id="editReleaseDate" class="form-control" @bind-Value="editingGame.releaseDate" />
+                        </div>
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" @onclick="HideEditGameModal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Update Game</button>
+                        </div>
+                    </EditForm>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<GameSummaryDto>? games;
+    private List<GenreDto>? genres;
+    private bool showAddModal = false;
+    private bool showEditModal = false;
+    private CreateGameDto newGame = new CreateGameDto();
+    private UpdateGameDto? editingGame;
+    private int editingGameId = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadGames();
+        await LoadGenres();
+    }
+
+    private async Task LoadGames()
+    {
+        games = await GamesService.GetGamesAsync();
+    }
+
+    private async Task LoadGenres()
+    {
+        try
+        {
+            genres = await GamesService.GetGenresAsync();
+            Console.WriteLine($"Loaded {genres?.Count ?? 0} genres");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading genres: {ex.Message}");
+            genres = new List<GenreDto>();
+        }
+    }
+
+    private void ShowAddGameModal()
+    {
+        newGame = new CreateGameDto
+        {
+            Name = "",
+            GenreId = 0,
+            Price = 0,
+            releaseDate = DateOnly.FromDateTime(DateTime.Today)
+        };
+        showAddModal = true;
+        StateHasChanged();
+    }
+
+    private void HideAddGameModal()
+    {
+        showAddModal = false;
+    }
+
+    private async Task HandleAddGame()
+    {
+        var createdGame = await GamesService.CreateGameAsync(newGame);
+        if (createdGame != null)
+        {
+            showAddModal = false;
+            await LoadGames(); // Refresh the list
+        }
+    }
+
+    private async void ShowEditGameModal(GameSummaryDto game)
+    {
+        editingGameId = game.Id;
+
+        // Get the full game details to get the GenreId
+        var gameDetails = await GamesService.GetGameAsync(game.Id);
+        if (gameDetails != null)
+        {
+            editingGame = new UpdateGameDto
+            {
+                Name = game.Name,
+                GenreId = gameDetails.GenreId,
+                Price = game.Price,
+                releaseDate = game.releaseDate
+            };
+            showEditModal = true;
+            StateHasChanged();
+        }
+    }
+
+    private void HideEditGameModal()
+    {
+        showEditModal = false;
+        editingGame = null;
+        editingGameId = 0;
+    }
+
+    private async Task HandleEditGame()
+    {
+        if (editingGame != null && editingGameId > 0)
+        {
+            var success = await GamesService.UpdateGameAsync(editingGameId, editingGame);
+            if (success)
+            {
+                showEditModal = false;
+                editingGame = null;
+                editingGameId = 0;
+                await LoadGames(); // Refresh the list
+            }
+        }
+    }
+
+    private async Task DeleteGame(int id)
+    {
+        bool confirmed = await JSRuntime.InvokeAsync<bool>("confirm", $"Are you sure you want to delete game with ID {id}?");
+        if (confirmed)
+        {
+            var success = await GamesService.DeleteGameAsync(id);
+            if (success)
+            {
+                await LoadGames(); // Refresh the list
+            }
+        }
+    }
+}
